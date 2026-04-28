@@ -10,6 +10,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 
@@ -23,6 +24,8 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
+        val etEmail = findViewById<TextInputEditText>(R.id.etEmail)
+        val etPassword = findViewById<TextInputEditText>(R.id.etPassword)
         val btnLogin = findViewById<Button>(R.id.btnLogin)
         val btnGoogleLogin = findViewById<Button>(R.id.btnGoogleLogin)
 
@@ -36,15 +39,22 @@ class LoginActivity : AppCompatActivity() {
 
         // 2. Siapkan pengaturan pop-up Google
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            // MASUKKAN KODE ANDA DI DALAM TANDA KUTIP DI BAWAH INI:
             .requestIdToken("68381799357-lipo17u2q05mmd0hlh2tiq9tel9qpp6k.apps.googleusercontent.com")
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
 
-        // Aksi tombol manual (kita biarkan kosong dulu untuk tutorial ini)
+        // Aksi tombol login Email & Password
         btnLogin.setOnClickListener {
-            Toast.makeText(this, "Silakan gunakan Lanjutkan dengan Google", Toast.LENGTH_SHORT).show()
+            val email = etEmail.text.toString().trim()
+            val password = etPassword.text.toString().trim()
+
+            if (email.isEmpty() || password.isEmpty()) {
+                Toast.makeText(this, "Email dan Password tidak boleh kosong", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            loginWithEmailPassword(email, password)
         }
 
         // Aksi tombol Google ditekan
@@ -52,6 +62,32 @@ class LoginActivity : AppCompatActivity() {
             val signInIntent = googleSignInClient.signInIntent
             launcherLoginGoogle.launch(signInIntent)
         }
+    }
+
+    private fun loginWithEmailPassword(email: String, password: String) {
+        auth.signInWithEmailAndPassword(email, password)
+            .addOnCompleteListener(this) { task ->
+                if (task.isSuccessful) {
+                    Toast.makeText(this, "Berhasil Masuk!", Toast.LENGTH_SHORT).show()
+                    pindahKeDashboard()
+                } else {
+                    // Jika login gagal karena user belum terdaftar, coba daftarkan
+                    // Ini sesuai permintaan: "tambahkan fungsi daftarkan email lewar aplikasi"
+                    registerAndLogin(email, password)
+                }
+            }
+    }
+
+    private fun registerAndLogin(email: String, password: String) {
+        auth.createUserWithEmailAndPassword(email, password)
+            .addOnCompleteListener(this) { task ->
+                if (task.isSuccessful) {
+                    Toast.makeText(this, "Akun berhasil dibuat dan otomatis masuk!", Toast.LENGTH_SHORT).show()
+                    pindahKeDashboard()
+                } else {
+                    Toast.makeText(this, "Gagal Masuk: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                }
+            }
     }
 
     // Penangkap hasil setelah user memilih email di pop-up Google

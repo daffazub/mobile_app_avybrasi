@@ -6,20 +6,21 @@ plugins {
 
     // TAMBAHKAN PLUGIN INI AGAR SERIALIZATION BEKERJA
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.0"
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
     namespace = "com.example.vybrasiapp"
 
-    // SUDAH DIPERBAIKI MENJADI 36
-    compileSdk = 35
+    // Library terbaru seperti androidx.activity 1.13.0 memerlukan SDK 36
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.vybrasiapp"
         minSdk = 24
 
-        // SUDAH DIPERBAIKI MENJADI 36
-        targetSdk = 35
+        // Target SDK disesuaikan ke 36
+        targetSdk = 36
 
         versionCode = 1
         versionName = "1.0"
@@ -42,6 +43,9 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    kotlinOptions {
+        jvmTarget = "11"
     }
 }
 
