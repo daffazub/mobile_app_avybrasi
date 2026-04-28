@@ -11,14 +11,12 @@ plugins {
 android {
     namespace = "com.example.vybrasiapp"
 
-    // SUDAH DIPERBAIKI MENJADI 36
     compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.vybrasiapp"
         minSdk = 24
 
-        // SUDAH DIPERBAIKI MENJADI 36
         targetSdk = 36
 
         versionCode = 1

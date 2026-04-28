@@ -169,10 +169,8 @@ class ReportFragment : Fragment() {
         val labelGrafik = ArrayList<String>()
         var nilaiBalok = FloatArray(0)
 
-        // LOGIKA STRUKTUR GRAFIK BARU
         when {
             periodeSaatIni == "Hari Ini" || kalenderPilihanKustom != null -> {
-                // Gunakan 4 balok (Pagi/Siang/Sore/Malam) untuk Hari Ini atau Tanggal Kustom
                 labelGrafik.addAll(listOf("Pagi", "Siang", "Sore", "Malam"))
                 nilaiBalok = FloatArray(4)
             }
@@ -197,10 +195,8 @@ class ReportFragment : Fragment() {
 
             var masukPeriodeIni = false
 
-            // LOGIKA FILTER WAKTU BARU
             when {
                 kalenderPilihanKustom != null -> {
-                    // Cek jika pesanan terjadi di TANGGAL KUSTOM yang dipilih
                     if (kalenderPesanan.get(Calendar.DAY_OF_YEAR) == kalenderPilihanKustom!!.get(Calendar.DAY_OF_YEAR) &&
                         kalenderPesanan.get(Calendar.YEAR) == kalenderPilihanKustom!!.get(Calendar.YEAR)) {
                         masukPeriodeIni = true
