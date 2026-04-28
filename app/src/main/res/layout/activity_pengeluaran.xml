@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:fitsSystemWindows="true"
+    android:background="@color/cream_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/black_matte"
+        android:padding="16dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/btnBack"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="❮ "
+            android:textColor="@color/gold_primary"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginEnd="6dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Input Pengeluaran"
+            android:textColor="@color/gold_primary"
+            android:textSize="20sp"
+            android:textStyle="bold"/>
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="20dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="@color/white_card"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Keterangan / Nama Biaya"
+                        android:textColor="#333333"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp"/>
+
+                    <EditText
+                        android:id="@+id/etKeterangan"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:background="@drawable/bg_input"
+                        android:hint="Contoh: Bayar Listrik Bulan Ini"
+                        android:textColorHint="#888888"
+                        android:textColor="#000000"
+                        android:paddingHorizontal="16dp"
+                        android:layout_marginBottom="20dp"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Nominal (Rp)"
+                        android:textColor="#333333"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp"/>
+
+                    <EditText
+                        android:id="@+id/etNominal"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:background="@drawable/bg_input"
+                        android:hint="Contoh: 150000"
+                        android:inputType="number"
+                        android:textColorHint="#888888"
+                        android:textColor="#000000"
+                        android:paddingHorizontal="16dp"
+                        android:layout_marginBottom="20dp"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Kategori"
+                        android:textColor="#333333"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp"/>
+
+                    <RadioGroup
+                        android:id="@+id/rgKategori"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginBottom="24dp">
+                        <RadioButton android:id="@+id/rbBahan" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Bahan Baku (Gelas, Plastik)" android:textColor="#000000"/>
+                        <RadioButton android:id="@+id/rbOperasional" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Operasional (Listrik, Internet)" android:textColor="#000000" android:checked="true"/>
+                        <RadioButton android:id="@+id/rbGaji" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Gaji Pegawai" android:textColor="#000000"/>
+                        <RadioButton android:id="@+id/rbLainnya" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Lain-lain" android:textColor="#000000"/>
+                    </RadioGroup>
+
+                    <Button
+                        android:id="@+id/btnSimpanPengeluaran"
+                        android:layout_width="match_parent"
+                        android:layout_height="55dp"
+                        android:text="Simpan Data"
+                        android:backgroundTint="@color/status_green"
+                        android:textColor="@android:color/white"
+                        android:textStyle="bold"
+                        android:textSize="16sp"/>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

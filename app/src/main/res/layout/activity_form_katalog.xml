@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:fitsSystemWindows="true"
+    android:background="@color/cream_background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/black_matte"
+        android:padding="16dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/btnBackForm"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="❮ "
+            android:textColor="@color/gold_primary"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_marginEnd="8dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Form Produk Kopi"
+            android:textColor="@color/gold_primary"
+            android:textSize="20sp"
+            android:textStyle="bold"/>
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="20dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cvUploadFoto"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:layout_marginBottom="20dp"
+                app:cardBackgroundColor="#EEEEEE"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
+                <ImageView
+                    android:id="@+id/ivFotoKopi"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <TextView
+                        android:id="@+id/tvHintUpload"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📷 Ketuk untuk Pilih Foto Kemasan"
+                        android:textColor="#555555"
+                        android:textStyle="bold"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="@color/white_card"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Nama Kopi" android:textStyle="bold" android:textColor="#000000" android:layout_marginBottom="8dp"/>
+                    <EditText android:id="@+id/etNamaKopi" android:layout_width="match_parent" android:layout_height="50dp" android:background="@drawable/bg_input" android:hint="Contoh: Arabica Wine" android:textColorHint="#888888" android:textColor="#000000" android:paddingHorizontal="16dp" android:layout_marginBottom="16dp"/>
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Kategori" android:textStyle="bold" android:textColor="#000000" android:layout_marginBottom="8dp"/>
+                    <RadioGroup android:id="@+id/rgKategoriKopi" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="16dp">
+                        <RadioButton android:id="@+id/rbArabica" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Arabica" android:textColor="#000000" android:checked="true" android:layout_marginEnd="16dp"/>
+                        <RadioButton android:id="@+id/rbRobusta" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Robusta" android:textColor="#000000"/>
+                    </RadioGroup>
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Ukuran Kemasan" android:textStyle="bold" android:textColor="#000000" android:layout_marginBottom="8dp"/>
+                    <EditText android:id="@+id/etKemasan" android:layout_width="match_parent" android:layout_height="50dp" android:background="@drawable/bg_input" android:hint="Contoh: 250 Gr" android:textColorHint="#888888" android:textColor="#000000" android:paddingHorizontal="16dp" android:layout_marginBottom="16dp"/>
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Harga Jual (Rp)" android:textStyle="bold" android:textColor="#000000" android:layout_marginBottom="8dp"/>
+                    <EditText android:id="@+id/etHargaKopi" android:layout_width="match_parent" android:layout_height="50dp" android:background="@drawable/bg_input" android:hint="Contoh: 80000" android:inputType="number" android:textColorHint="#888888" android:textColor="#000000" android:paddingHorizontal="16dp" android:layout_marginBottom="16dp"/>
+
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Deskripsi &amp; Cerita Kopi" android:textStyle="bold" android:textColor="#000000" android:layout_marginBottom="8dp"/>
+                    <EditText android:id="@+id/etDeskripsi" android:layout_width="match_parent" android:layout_height="120dp" android:background="@drawable/bg_input" android:hint="Ceritakan profil roasting, notes rasa..." android:textColorHint="#888888" android:textColor="#000000" android:inputType="textMultiLine" android:gravity="top|start" android:padding="16dp" android:layout_marginBottom="24dp"/>
+
+                    <Button
+                        android:id="@+id/btnSimpanKatalog"
+                        android:layout_width="match_parent"
+                        android:layout_height="55dp"
+                        android:text="Simpan ke Web"
+                        android:backgroundTint="@color/status_green"
+                        android:textColor="@android:color/white"
+                        android:textStyle="bold"
+                        android:textSize="16sp"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "68381799357",
+    "project_id": "vybrasiapp",
+    "storage_bucket": "vybrasiapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:68381799357:android:26ce0ef2303b45ae20d8d4",
+        "android_client_info": {
+          "package_name": "com.example.vybrasiapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "68381799357-cvdi3eh2qqn00f7k6484hla01hp0lp4f.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.vybrasiapp",
+            "certificate_hash": "5a71edf881b8e36a290cc0a29998c4680180811c"
+          }
+        },
+        {
+          "client_id": "68381799357-lipo17u2q05mmd0hlh2tiq9tel9qpp6k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAH7UtR763QoCn75YkWgZvwRNVrlTIr1As"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "68381799357-lipo17u2q05mmd0hlh2tiq9tel9qpp6k.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
