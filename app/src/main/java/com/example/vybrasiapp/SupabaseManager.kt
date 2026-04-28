@@ -1,9 +1,9 @@
 package com.example.vybrasiapp
 
 import io.github.jan.supabase.createSupabaseClient
-import io.github.jan.supabase.gotrue.Auth // Untuk SSO
-import io.github.jan.supabase.postgrest.Postgrest // Untuk Database
-import io.github.jan.supabase.storage.Storage // Untuk Upload Gambar
+import io.github.jan.supabase.gotrue.Auth // untuk SSO
+import io.github.jan.supabase.postgrest.Postgrest // untuk Database
+import io.github.jan.supabase.storage.Storage // untuk Upload Gambar
 
 object SupabaseManager {
     val client = createSupabaseClient(
