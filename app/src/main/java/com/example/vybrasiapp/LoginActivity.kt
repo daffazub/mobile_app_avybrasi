@@ -14,11 +14,12 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 
-// IMPORT SUPABASE
-import io.github.jan.supabase.gotrue.auth
-import io.github.jan.supabase.gotrue.providers.Google
-import io.github.jan.supabase.gotrue.providers.builtin.Email
-import io.github.jan.supabase.gotrue.providers.builtin.IDToken
+// IMPORT SUPABASE V3
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.Google
+import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.providers.builtin.IDToken
+import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -32,13 +33,13 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        // Hubungkan dengan desain XML Anda (Sesuaikan ID-nya jika berbeda)
+        // Hubungkan dengan desain XML Anda
         val etEmail = findViewById<EditText>(R.id.etEmail)
         val etPassword = findViewById<EditText>(R.id.etPassword)
-        val btnLogin = findViewById<Button>(R.id.btnLogin) // Di XML sebelumnya mungkin btnMasuk
+        val btnLogin = findViewById<Button>(R.id.btnLogin)
         val btnGoogleLogin = findViewById<Button>(R.id.btnGoogleLogin)
 
-        // 1. Cek apakah user sudah login sebelumnya (Auto-Login Supabase)
+        // 1. Cek apakah user sudah login sebelumnya (Auto-Login)
         lifecycleScope.launch {
             val session = withContext(Dispatchers.IO) {
                 try {
@@ -52,7 +53,7 @@ class LoginActivity : AppCompatActivity() {
             }
         }
 
-        // 2. Siapkan pengaturan pop-up Google (TETAP DIPERTAHANKAN)
+        // 2. Siapkan pengaturan pop-up Google
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken("68381799357-lipo17u2q05mmd0hlh2tiq9tel9qpp6k.apps.googleusercontent.com")
             .requestEmail()
@@ -63,10 +64,10 @@ class LoginActivity : AppCompatActivity() {
         // 3. AKSI TOMBOL MANUAL (EMAIL & PASSWORD)
         // ==========================================
         btnLogin.setOnClickListener {
-            val email = etEmail?.text.toString().trim()
-            val password = etPassword?.text.toString().trim()
+            val emailStr = etEmail.text.toString().trim()
+            val passwordStr = etPassword.text.toString().trim()
 
-            if (email.isEmpty() || password.isEmpty()) {
+            if (emailStr.isEmpty() || passwordStr.isEmpty()) {
                 Toast.makeText(this, "Email dan Sandi tidak boleh kosong!", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
@@ -76,11 +77,11 @@ class LoginActivity : AppCompatActivity() {
 
             lifecycleScope.launch {
                 try {
-                    // Tembak API Supabase untuk Login Email
+                    // Tembak API Supabase untuk Login Email (Sintaks V3 dengan Tipe Eksplisit)
                     withContext(Dispatchers.IO) {
                         SupabaseManager.client.auth.signInWith(Email) {
-                            this.email = email
-                            this.password = password
+                            email = emailStr
+                            password = passwordStr
                         }
                     }
                     Toast.makeText(this@LoginActivity, "Berhasil Masuk!", Toast.LENGTH_SHORT).show()
@@ -112,21 +113,21 @@ class LoginActivity : AppCompatActivity() {
         try {
             // Berhasil memilih akun, ambil token-nya
             val account = task.getResult(ApiException::class.java)!!
-            supabaseAuthWithGoogle(account.idToken!!) // <-- Memanggil fungsi Supabase baru
+            supabaseAuthWithGoogle(account.idToken!!)
         } catch (e: ApiException) {
             Toast.makeText(this, "Gagal memunculkan Google: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
     // ==========================================
-    // 5. FUNGSI BARU: SAMBUNGKAN TOKEN GOOGLE KE SUPABASE
+    // 5. FUNGSI SAMBUNGKAN TOKEN GOOGLE KE SUPABASE
     // ==========================================
     private fun supabaseAuthWithGoogle(idTokenString: String) {
         lifecycleScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    // Jembatan: Menyerahkan token Google ke Supabase agar disahkan
-                    SupabaseManager.client.auth.signInWith(IDToken) { // <-- UBAH DI SINI (IDToken)
+                    // Jembatan: Menyerahkan token Google ke Supabase (Sintaks V3 dengan Tipe Eksplisit)
+                    SupabaseManager.client.auth.signInWith(IDToken) {
                         idToken = idTokenString
                         provider = Google
                     }
@@ -136,15 +137,15 @@ class LoginActivity : AppCompatActivity() {
                 pindahKeDashboard()
             } catch (e: Exception) {
                 Log.e("AUTH_ERROR", "Supabase Google Error: ${e.message}")
-                Toast.makeText(this@LoginActivity, "Otentikasi Gagal: Cek Pengaturan Google di Supabase", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@LoginActivity, "Otentikasi Gagal", Toast.LENGTH_LONG).show()
             }
         }
     }
 
     // Fungsi otomatis pindah halaman
     private fun pindahKeDashboard() {
-        val intent = Intent(this, MainActivity::class.java) // Pastikan nama halaman utama Anda adalah MainActivity
+        val intent = Intent(this, MainActivity::class.java)
         startActivity(intent)
-        finish() // Tutup halaman login agar tidak bisa di-back
+        finish()
     }
 }

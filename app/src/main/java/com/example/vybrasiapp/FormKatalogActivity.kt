@@ -26,7 +26,7 @@ class FormKatalogActivity : AppCompatActivity() {
 
     // Variabel untuk Mode Edit
     private var isEditMode = false
-    private var editId: String = "" // Sudah benar menggunakan String untuk UUID
+    private var editId: Int = -1
     private var oldImageUrl: String = ""
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -54,26 +54,30 @@ class FormKatalogActivity : AppCompatActivity() {
         }
 
         btnSimpan.setOnClickListener {
+            // REVISI UX: Cek apakah ini mode edit. Jika ya, munculkan peringatan dulu!
             if (isEditMode) {
                 val builder = android.app.AlertDialog.Builder(this)
                 builder.setTitle("Konfirmasi Update")
                 builder.setMessage("Apakah Anda yakin ingin menyimpan perubahan pada produk ini?")
-                builder.setPositiveButton("Ya, Simpan") { _, _ -> siapkanData() }
-                builder.setNegativeButton("Batal", null)
+                builder.setPositiveButton("Ya, Simpan") { _, _ ->
+                    siapkanData() // Lanjut simpan jika setuju
+                }
+                builder.setNegativeButton("Batal", null) // Tutup pop-up jika batal
                 builder.show()
             } else {
+                // Jika ini form tambah produk baru, langsung simpan saja
                 siapkanData()
             }
         }
 
+        // CEK APAKAH INI MODE EDIT?
         cekModeEdit()
     }
 
     private fun cekModeEdit() {
-        val idDariIntent = intent.getStringExtra("EXTRA_ID")
-        if (!idDariIntent.isNullOrEmpty()) {
+        editId = intent.getIntExtra("EXTRA_ID", -1)
+        if (editId != -1) {
             isEditMode = true
-            editId = idDariIntent
             btnSimpan.text = "Update Produk"
 
             val nama = intent.getStringExtra("EXTRA_NAMA") ?: ""
@@ -126,7 +130,8 @@ class FormKatalogActivity : AppCompatActivity() {
         }
 
         val kategori = if (rgKategori.checkedRadioButtonId == R.id.rbArabica) "Arabica" else "Robusta"
-        val harga = hargaStr.toDouble()
+        val harga = hargaStr.toInt()
+
         val deskripsiLengkap = "$kategori • Kemasan: $kemasan • $deskripsiAwal"
 
         btnSimpan.isEnabled = false
@@ -142,7 +147,7 @@ class FormKatalogActivity : AppCompatActivity() {
         simpanKeSupabase(namaKopi, harga, deskripsiLengkap, imageByteArray)
     }
 
-    private fun simpanKeSupabase(namaKopi: String, hargaKopi: Double, deskripsiLengkap: String, imageByteArray: ByteArray?) {
+    private fun simpanKeSupabase(nama: String, harga: Int, deskripsi: String, imageByteArray: ByteArray?) {
         lifecycleScope.launch {
             try {
                 var imageUrlToSave = oldImageUrl
@@ -158,23 +163,23 @@ class FormKatalogActivity : AppCompatActivity() {
                 }
 
                 val produkData = ProdukInsert(
-                    nama = namaKopi,
-                    harga = hargaKopi,
-                    deskripsi_lengkap = deskripsiLengkap,
-                    gambar_utama = imageUrlToSave
+                    nama_produk = nama,
+                    harga = harga,
+                    deskripsi = deskripsi,
+                    image_url = imageUrlToSave
                 )
 
                 withContext(Dispatchers.IO) {
                     if (isEditMode) {
                         SupabaseManager.client.from("produk").update(produkData) {
-                            filter { eq("id_produk", editId) } // Sesuai dengan kolom UUID di ERD
+                            filter { eq("id", editId) }
                         }
                     } else {
                         SupabaseManager.client.from("produk").insert(produkData)
                     }
                 }
 
-                val pesanSukses = if (isEditMode) "Produk diupdate! ✅" else "Produk ditambahkan! ✅"
+                val pesanSukses = if (isEditMode) "Produk berhasil diupdate! ✅" else "Produk berhasil ditambahkan! ✅"
                 Toast.makeText(this@FormKatalogActivity, pesanSukses, Toast.LENGTH_SHORT).show()
                 finish()
 
