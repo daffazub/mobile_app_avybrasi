@@ -25,10 +25,7 @@ class MonitorFragment : Fragment() {
     private lateinit var llContainerPesanan: LinearLayout
     private lateinit var llContainerStokDetail: LinearLayout
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val view = inflater.inflate(R.layout.fragment_monitor, container, false)
         llContainerPesanan = view.findViewById(R.id.llContainerPesanan)
         llContainerStokDetail = view.findViewById(R.id.llContainerStokDetail)
@@ -37,22 +34,21 @@ class MonitorFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        muatDataOperasional() // Selalu update saat halaman dibuka
+        muatDataOperasional()
     }
 
     private fun muatDataOperasional() {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // 1. Tarik HANYA Pesanan yang butuh tindakan (Menunggu Proses)
+                // MENGGUNAKAN TABEL TRANSAKSI
                 val pesananList = withContext(Dispatchers.IO) {
-                    SupabaseManager.client.from("web_orders")
-                        .select { filter { eq("status", "Menunggu Proses") } }
+                    SupabaseManager.client.from("transaksi").select { filter { eq("status", "pending") } }
                         .decodeList<WebOrderModel>()
                 }
 
-                // 2. Tarik SEMUA Stok Barang
+                // MENGGUNAKAN TABEL PRODUK UNTUK CEK STOK
                 val stokList = withContext(Dispatchers.IO) {
-                    SupabaseManager.client.from("inventory").select().decodeList<InventoryModel>()
+                    SupabaseManager.client.from("produk").select().decodeList<InventoryModel>()
                 }
 
                 withContext(Dispatchers.Main) {
@@ -60,124 +56,59 @@ class MonitorFragment : Fragment() {
                     renderStok(stokList)
                 }
             } catch (e: Exception) {
-                Log.e("MONITOR_ERROR", "Gagal memuat operasional: ${e.message}")
+                Log.e("MONITOR_ERROR", "Gagal memuat: ${e.message}")
             }
         }
     }
 
-    // ==========================================
-    // FUNGSI RENDER ANTREAN PESANAN (DENGAN TOMBOL)
-    // ==========================================
     private fun renderPesanan(pesananList: List<WebOrderModel>) {
         llContainerPesanan.removeAllViews()
-
         if (pesananList.isEmpty()) {
-            val tvKosong = TextView(requireContext()).apply {
-                text = "Hore! Meja bersih, tidak ada antrean pesanan saat ini."
-                setPadding(16, 16, 16, 16)
-                setTextColor(Color.GRAY)
-            }
-            llContainerPesanan.addView(tvKosong)
+            llContainerPesanan.addView(TextView(requireContext()).apply { text = "Antrean bersih!"; setPadding(16,16,16,16) })
             return
         }
 
         pesananList.forEach { pesanan ->
-            // Membuat Kartu Pesanan Dinamis
-            val itemLayout = LinearLayout(requireContext()).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(16, 16, 16, 16)
-                background = requireContext().getDrawable(R.drawable.bg_card_outline) // Pastikan Anda punya drawable kotak
-            }
+            val itemLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL; setPadding(16, 16, 16, 16) }
+            // ID sekarang UUID, kita ambil 8 karakter pertama saja agar tidak kepanjangan di UI
+            val shortId = pesanan.id_transaksi?.take(8) ?: "Unknown"
 
-            val tvTitle = TextView(requireContext()).apply {
-                text = "Pesanan #${pesanan.id}"
-                textSize = 16f
-                setTypeface(null, android.graphics.Typeface.BOLD)
-                setTextColor(Color.BLACK)
-            }
-
-            // Format Rp jika ada harganya
-            val hargaRp = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("id", "ID")).format(pesanan.total_harga ?: 0)
-            val tvDetail = TextView(requireContext()).apply {
-                text = "Total Nilai: $hargaRp\nStatus: ${pesanan.status}"
-                setTextColor(Color.parseColor("#F44336")) // Merah tanda belum diproses
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                    setMargins(0, 4, 0, 12)
-                }
-            }
-
-            // TOMBOL EKSEKUSI
+            val tvTitle = TextView(requireContext()).apply { text = "Pesanan #$shortId"; textSize = 16f; setTypeface(null, android.graphics.Typeface.BOLD) }
+            val tvDetail = TextView(requireContext()).apply { text = "Total: Rp${pesanan.total_harga}\nStatus: ${pesanan.status}"; setTextColor(Color.RED) }
             val btnSelesai = Button(requireContext()).apply {
-                text = "Tandai Selesai & Kirim"
-                setBackgroundColor(Color.parseColor("#4CAF50")) // Hijau Selesai
+                text = "Tandai Selesai"
+                setBackgroundColor(Color.parseColor("#4CAF50"))
                 setTextColor(Color.WHITE)
-
-                // Apa yang terjadi saat tombol ditekan?
-                setOnClickListener {
-                    konfirmasiSelesaikanPesanan(pesanan.id ?: 0)
-                }
+                setOnClickListener { konfirmasiSelesaikanPesanan(pesanan.id_transaksi ?: "") } // Kirim UUID
             }
-
-            val garisBawah = View(requireContext()).apply {
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 2).apply {
-                    setMargins(0, 16, 0, 0)
-                }
-                setBackgroundColor(Color.parseColor("#EEEEEE"))
-            }
-
-            itemLayout.addView(tvTitle)
-            itemLayout.addView(tvDetail)
-            itemLayout.addView(btnSelesai)
-            itemLayout.addView(garisBawah)
-
+            itemLayout.addView(tvTitle); itemLayout.addView(tvDetail); itemLayout.addView(btnSelesai)
             llContainerPesanan.addView(itemLayout)
         }
     }
 
-    // ==========================================
-    // FUNGSI UPDATE STATUS KE SUPABASE
-    // ==========================================
-    private fun konfirmasiSelesaikanPesanan(idPesanan: Int) {
-        // Tampilkan peringatan sebelum mengeksekusi
+    private fun konfirmasiSelesaikanPesanan(idPesanan: String) { // Tipe parameter jadi String (UUID)
         AlertDialog.Builder(requireContext())
             .setTitle("Selesaikan Pesanan?")
-            .setMessage("Apakah barang untuk Pesanan #$idPesanan sudah siap dan dikirim?")
-            .setPositiveButton("Ya, Sudah") { _, _ ->
-                updateStatusSupabase(idPesanan)
-            }
-            .setNegativeButton("Belum", null)
+            .setPositiveButton("Ya") { _, _ -> updateStatusSupabase(idPesanan) }
+            .setNegativeButton("Batal", null)
             .show()
     }
 
-    private fun updateStatusSupabase(idPesanan: Int) {
+    private fun updateStatusSupabase(idPesanan: String) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // Proses update ke Supabase
                 withContext(Dispatchers.IO) {
-                    SupabaseManager.client.from("web_orders")
-                        .update(
-                            {
-                                set("status", "Dikirim") // <-- Mengubah statusnya di database!
-                            }
-                        ) {
-                            filter { eq("id", idPesanan) }
-                        }
+                    SupabaseManager.client.from("transaksi")
+                        .update({ set("status", "shipped") }) { filter { eq("id_transaksi", idPesanan) } }
                 }
-
-                // Jika sukses, beri tahu admin dan refresh layarnya
-                Toast.makeText(requireContext(), "Pesanan #$idPesanan berhasil diselesaikan!", Toast.LENGTH_SHORT).show()
-                muatDataOperasional() // Tarik data ulang agar pesanan tadi hilang dari antrean
-
+                Toast.makeText(requireContext(), "Berhasil!", Toast.LENGTH_SHORT).show()
+                muatDataOperasional()
             } catch (e: Exception) {
-                Log.e("MONITOR_ERROR", "Gagal update: ${e.message}")
-                Toast.makeText(requireContext(), "Gagal mengubah status pesanan", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Gagal: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    // ==========================================
-    // FUNGSI RENDER STOK (Seperti Sebelumnya)
-    // ==========================================
     private fun renderStok(stokList: List<InventoryModel>) {
         llContainerStokDetail.removeAllViews()
         stokList.forEach { stok ->
@@ -185,18 +116,10 @@ class MonitorFragment : Fragment() {
             val kotakWarna = itemView.findViewById<View>(R.id.viewColorIndicator)
             val tvNamaStok = itemView.findViewById<TextView>(R.id.tvNamaStokWarning)
 
-            val sisa = stok.sisa_kg ?: 0
-            val nama = stok.nama_produk ?: "Barang"
-
-            val warnaStatus = when {
-                sisa < 5 -> "#F44336" // Kritis
-                sisa in 5..10 -> "#FFC107" // Waspada
-                else -> "#4CAF50" // Aman
-            }
-
-            kotakWarna.setBackgroundColor(Color.parseColor(warnaStatus))
-            tvNamaStok.text = "$nama - Tersedia: $sisa Kg"
-
+            val sisa = stok.stok ?: 0
+            val nama = stok.nama ?: "Barang"
+            kotakWarna.setBackgroundColor(Color.parseColor(if (sisa < 5) "#F44336" else "#4CAF50"))
+            tvNamaStok.text = "$nama - Sisa: $sisa"
             llContainerStokDetail.addView(itemView)
         }
     }

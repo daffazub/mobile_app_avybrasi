@@ -37,12 +37,13 @@ class KatalogAdapter(
         val kopi = listKopi[position]
         val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
-        holder.tvNama.text = kopi.nama_produk
-        val deskripsiText = kopi.deskripsi ?: "Tanpa deskripsi"
+        // PERBAIKAN: Gunakan pemanggilan variabel ERD yang baru
+        holder.tvNama.text = kopi.nama
+        val deskripsiText = kopi.deskripsi_lengkap ?: "Tanpa deskripsi"
         holder.tvKatKemasan.text = deskripsiText
         holder.tvHarga.text = formatRupiah.format(kopi.harga)
 
-        holder.ivFoto.load(kopi.image_url) {
+        holder.ivFoto.load(kopi.gambar_utama) {
             crossfade(true)
             placeholder(R.mipmap.ic_launcher_round)
             error(R.mipmap.ic_launcher_round)
@@ -56,18 +57,14 @@ class KatalogAdapter(
             popupMenu.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
                     0 -> {
-                        // REVISI UX: Langsung buka form, tidak perlu peringatan di sini
                         onEdit(kopi)
                         true
                     }
                     1 -> {
-                        // Peringatan hapus tetap dipertahankan
                         val builder = AlertDialog.Builder(view.context)
                         builder.setTitle("Peringatan Hapus")
-                        builder.setMessage("Apakah Anda sangat yakin ingin menghapus '${kopi.nama_produk}'? Data yang dihapus tidak dapat dikembalikan.")
-                        builder.setPositiveButton("Ya, Hapus") { _, _ ->
-                            onDelete(kopi)
-                        }
+                        builder.setMessage("Apakah Anda sangat yakin ingin menghapus '${kopi.nama}'? Data yang dihapus tidak dapat dikembalikan.")
+                        builder.setPositiveButton("Ya, Hapus") { _, _ -> onDelete(kopi) }
                         builder.setNegativeButton("Batal", null)
                         builder.show()
                         true
