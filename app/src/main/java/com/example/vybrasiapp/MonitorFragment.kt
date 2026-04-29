@@ -13,12 +13,35 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.example.vybrasiapp.model.InventoryModel
-import com.example.vybrasiapp.model.WebOrderModel
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import java.text.NumberFormat
+import java.util.Locale
+
+// ==============================================================================
+// CETAKAN DATA LOKAL (Penangkal Error Model Lama)
+// ==============================================================================
+@Serializable
+data class TransaksiMonitorDTO(
+    val id_transaksi: String = "",
+    val no_invoice: String = "",
+    val total_harga: Double = 0.0,
+    val status: String = ""
+)
+
+@Serializable
+data class ProdukMonitorDTO(
+    val nama: String = "",
+    val stok: Int = 0
+)
+
+@Serializable
+data class UpdateStatusDTO(
+    val status: String
+)
 
 class MonitorFragment : Fragment() {
 
@@ -37,22 +60,22 @@ class MonitorFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        muatDataOperasional() // Selalu update saat halaman dibuka
+        muatDataOperasional()
     }
 
     private fun muatDataOperasional() {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // 1. Tarik HANYA Pesanan yang butuh tindakan (Menunggu Proses)
+                // 1. Tarik Pesanan yang statusnya 'pending' (Menggunakan tabel baru: transaksi)
                 val pesananList = withContext(Dispatchers.IO) {
-                    SupabaseManager.client.from("web_orders")
-                        .select { filter { eq("status", "Menunggu Proses") } }
-                        .decodeList<WebOrderModel>()
+                    SupabaseManager.client.from("transaksi")
+                        .select { filter { eq("status", "pending") } }
+                        .decodeList<TransaksiMonitorDTO>()
                 }
 
-                // 2. Tarik SEMUA Stok Barang
+                // 2. Tarik SEMUA Stok Barang (Menggunakan tabel baru: produk)
                 val stokList = withContext(Dispatchers.IO) {
-                    SupabaseManager.client.from("inventory").select().decodeList<InventoryModel>()
+                    SupabaseManager.client.from("produk").select().decodeList<ProdukMonitorDTO>()
                 }
 
                 withContext(Dispatchers.Main) {
@@ -66,9 +89,9 @@ class MonitorFragment : Fragment() {
     }
 
     // ==========================================
-    // FUNGSI RENDER ANTREAN PESANAN (DENGAN TOMBOL)
+    // FUNGSI RENDER ANTREAN PESANAN
     // ==========================================
-    private fun renderPesanan(pesananList: List<WebOrderModel>) {
+    private fun renderPesanan(pesananList: List<TransaksiMonitorDTO>) {
         llContainerPesanan.removeAllViews()
 
         if (pesananList.isEmpty()) {
@@ -82,39 +105,40 @@ class MonitorFragment : Fragment() {
         }
 
         pesananList.forEach { pesanan ->
-            // Membuat Kartu Pesanan Dinamis
             val itemLayout = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(16, 16, 16, 16)
-                background = requireContext().getDrawable(R.drawable.bg_card_outline) // Pastikan Anda punya drawable kotak
+                try {
+                    background = requireContext().getDrawable(R.drawable.bg_card_outline)
+                } catch (e: Exception) {
+                    setBackgroundColor(Color.parseColor("#FAFAFA")) // Fallback aman
+                }
             }
 
             val tvTitle = TextView(requireContext()).apply {
-                text = "Pesanan #${pesanan.id}"
+                text = "Pesanan ${pesanan.no_invoice}"
                 textSize = 16f
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 setTextColor(Color.BLACK)
             }
 
-            // Format Rp jika ada harganya
-            val hargaRp = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("id", "ID")).format(pesanan.total_harga ?: 0)
+            val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+            val hargaRp = formatRupiah.format(pesanan.total_harga)
             val tvDetail = TextView(requireContext()).apply {
                 text = "Total Nilai: $hargaRp\nStatus: ${pesanan.status}"
-                setTextColor(Color.parseColor("#F44336")) // Merah tanda belum diproses
+                setTextColor(Color.parseColor("#F44336"))
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                     setMargins(0, 4, 0, 12)
                 }
             }
 
-            // TOMBOL EKSEKUSI
             val btnSelesai = Button(requireContext()).apply {
                 text = "Tandai Selesai & Kirim"
-                setBackgroundColor(Color.parseColor("#4CAF50")) // Hijau Selesai
+                setBackgroundColor(Color.parseColor("#4CAF50"))
                 setTextColor(Color.WHITE)
 
-                // Apa yang terjadi saat tombol ditekan?
                 setOnClickListener {
-                    konfirmasiSelesaikanPesanan(pesanan.id ?: 0)
+                    konfirmasiSelesaikanPesanan(pesanan.id_transaksi, pesanan.no_invoice)
                 }
             }
 
@@ -137,36 +161,30 @@ class MonitorFragment : Fragment() {
     // ==========================================
     // FUNGSI UPDATE STATUS KE SUPABASE
     // ==========================================
-    private fun konfirmasiSelesaikanPesanan(idPesanan: Int) {
-        // Tampilkan peringatan sebelum mengeksekusi
+    private fun konfirmasiSelesaikanPesanan(idTransaksi: String, noInvoice: String) {
         AlertDialog.Builder(requireContext())
             .setTitle("Selesaikan Pesanan?")
-            .setMessage("Apakah barang untuk Pesanan #$idPesanan sudah siap dan dikirim?")
+            .setMessage("Apakah barang untuk $noInvoice sudah siap dan dikirim?")
             .setPositiveButton("Ya, Sudah") { _, _ ->
-                updateStatusSupabase(idPesanan)
+                updateStatusSupabase(idTransaksi, noInvoice)
             }
             .setNegativeButton("Belum", null)
             .show()
     }
 
-    private fun updateStatusSupabase(idPesanan: Int) {
+    private fun updateStatusSupabase(idTransaksi: String, noInvoice: String) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // Proses update ke Supabase
                 withContext(Dispatchers.IO) {
-                    SupabaseManager.client.from("web_orders")
-                        .update(
-                            {
-                                set("status", "Dikirim") // <-- Mengubah statusnya di database!
-                            }
-                        ) {
-                            filter { eq("id", idPesanan) }
+                    // Update status dari 'pending' menjadi 'shipped' (sesuai ENUM database)
+                    SupabaseManager.client.from("transaksi")
+                        .update(UpdateStatusDTO("shipped")) {
+                            filter { eq("id_transaksi", idTransaksi) }
                         }
                 }
 
-                // Jika sukses, beri tahu admin dan refresh layarnya
-                Toast.makeText(requireContext(), "Pesanan #$idPesanan berhasil diselesaikan!", Toast.LENGTH_SHORT).show()
-                muatDataOperasional() // Tarik data ulang agar pesanan tadi hilang dari antrean
+                Toast.makeText(requireContext(), "$noInvoice berhasil diselesaikan!", Toast.LENGTH_SHORT).show()
+                muatDataOperasional()
 
             } catch (e: Exception) {
                 Log.e("MONITOR_ERROR", "Gagal update: ${e.message}")
@@ -176,17 +194,17 @@ class MonitorFragment : Fragment() {
     }
 
     // ==========================================
-    // FUNGSI RENDER STOK (Seperti Sebelumnya)
+    // FUNGSI RENDER STOK
     // ==========================================
-    private fun renderStok(stokList: List<InventoryModel>) {
+    private fun renderStok(stokList: List<ProdukMonitorDTO>) {
         llContainerStokDetail.removeAllViews()
-        stokList.forEach { stok ->
+        stokList.forEach { produk ->
             val itemView = LayoutInflater.from(requireContext()).inflate(R.layout.item_stok_warning, llContainerStokDetail, false)
             val kotakWarna = itemView.findViewById<View>(R.id.viewColorIndicator)
             val tvNamaStok = itemView.findViewById<TextView>(R.id.tvNamaStokWarning)
 
-            val sisa = stok.sisa_kg ?: 0
-            val nama = stok.nama_produk ?: "Barang"
+            val sisa = produk.stok
+            val nama = produk.nama
 
             val warnaStatus = when {
                 sisa < 5 -> "#F44336" // Kritis
@@ -195,7 +213,7 @@ class MonitorFragment : Fragment() {
             }
 
             kotakWarna.setBackgroundColor(Color.parseColor(warnaStatus))
-            tvNamaStok.text = "$nama - Tersedia: $sisa Kg"
+            tvNamaStok.text = "$nama - Tersedia: $sisa Kemasan"
 
             llContainerStokDetail.addView(itemView)
         }

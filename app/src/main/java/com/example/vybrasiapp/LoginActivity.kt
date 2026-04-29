@@ -13,56 +13,40 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
-
-// IMPORT SUPABASE V3
-import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.providers.Google
-import io.github.jan.supabase.auth.providers.builtin.Email
-import io.github.jan.supabase.auth.providers.builtin.IDToken
-import io.github.jan.supabase.auth.user.UserInfo
+import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.gotrue.providers.Google
+import io.github.jan.supabase.gotrue.providers.builtin.Email
+import io.github.jan.supabase.gotrue.providers.builtin.IDToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class LoginActivity : AppCompatActivity() {
 
-    // Wadah untuk pop-up Google
     private lateinit var googleSignInClient: GoogleSignInClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        // Hubungkan dengan desain XML Anda
         val etEmail = findViewById<EditText>(R.id.etEmail)
         val etPassword = findViewById<EditText>(R.id.etPassword)
         val btnLogin = findViewById<Button>(R.id.btnLogin)
         val btnGoogleLogin = findViewById<Button>(R.id.btnGoogleLogin)
 
-        // 1. Cek apakah user sudah login sebelumnya (Auto-Login)
         lifecycleScope.launch {
             val session = withContext(Dispatchers.IO) {
-                try {
-                    SupabaseManager.client.auth.currentSessionOrNull()
-                } catch (e: Exception) {
-                    null
-                }
+                try { SupabaseManager.client.auth.currentSessionOrNull() } catch (e: Exception) { null }
             }
-            if (session != null) {
-                pindahKeDashboard()
-            }
+            if (session != null) pindahKeDashboard()
         }
 
-        // 2. Siapkan pengaturan pop-up Google
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken("68381799357-lipo17u2q05mmd0hlh2tiq9tel9qpp6k.apps.googleusercontent.com")
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
 
-        // ==========================================
-        // 3. AKSI TOMBOL MANUAL (EMAIL & PASSWORD)
-        // ==========================================
         btnLogin.setOnClickListener {
             val emailStr = etEmail.text.toString().trim()
             val passwordStr = etPassword.text.toString().trim()
@@ -72,23 +56,44 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
+            // ✅ CEK RATE LIMITER SEBELUM LOGIN
+            val blockMessage = LoginRateLimiter.check(this)
+            if (blockMessage != null) {
+                Toast.makeText(this, blockMessage, Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
             btnLogin.text = "Memuat..."
             btnLogin.isEnabled = false
 
             lifecycleScope.launch {
                 try {
-                    // Tembak API Supabase untuk Login Email (Sintaks V3 dengan Tipe Eksplisit)
                     withContext(Dispatchers.IO) {
                         SupabaseManager.client.auth.signInWith(Email) {
                             email = emailStr
                             password = passwordStr
                         }
                     }
+
+                    // ✅ LOGIN BERHASIL - reset rate limiter
+                    LoginRateLimiter.recordSuccess(this@LoginActivity)
                     Toast.makeText(this@LoginActivity, "Berhasil Masuk!", Toast.LENGTH_SHORT).show()
                     pindahKeDashboard()
+
                 } catch (e: Exception) {
+                    // ✅ LOGIN GAGAL - catat percobaan
+                    LoginRateLimiter.recordFailure(this@LoginActivity)
+
+                    val sisa = LoginRateLimiter.getRemainingAttempts(this@LoginActivity)
+                    val pesanError = if (sisa > 0) {
+                        "Email atau Sandi salah! Sisa percobaan: $sisa"
+                    } else {
+                        "Akun diblokir sementara selama 15 menit."
+                    }
+
                     Log.e("AUTH_ERROR", "Gagal Login: ${e.message}")
-                    Toast.makeText(this@LoginActivity, "Email atau Sandi salah!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@LoginActivity, pesanError, Toast.LENGTH_LONG).show()
+
                 } finally {
                     btnLogin.text = "Masuk"
                     btnLogin.isEnabled = true
@@ -96,22 +101,16 @@ class LoginActivity : AppCompatActivity() {
             }
         }
 
-        // ==========================================
-        // 4. AKSI TOMBOL GOOGLE
-        // ==========================================
         btnGoogleLogin.setOnClickListener {
-            val signInIntent = googleSignInClient.signInIntent
-            launcherLoginGoogle.launch(signInIntent)
+            launcherLoginGoogle.launch(googleSignInClient.signInIntent)
         }
     }
 
-    // Penangkap hasil setelah user memilih email di pop-up Google
     private val launcherLoginGoogle = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
-            // Berhasil memilih akun, ambil token-nya
             val account = task.getResult(ApiException::class.java)!!
             supabaseAuthWithGoogle(account.idToken!!)
         } catch (e: ApiException) {
@@ -119,20 +118,15 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    // ==========================================
-    // 5. FUNGSI SAMBUNGKAN TOKEN GOOGLE KE SUPABASE
-    // ==========================================
     private fun supabaseAuthWithGoogle(idTokenString: String) {
         lifecycleScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    // Jembatan: Menyerahkan token Google ke Supabase (Sintaks V3 dengan Tipe Eksplisit)
                     SupabaseManager.client.auth.signInWith(IDToken) {
                         idToken = idTokenString
                         provider = Google
                     }
                 }
-                // YAY! Berhasil Login.
                 Toast.makeText(this@LoginActivity, "Berhasil Masuk dengan Google!", Toast.LENGTH_SHORT).show()
                 pindahKeDashboard()
             } catch (e: Exception) {
@@ -142,10 +136,8 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    // Fungsi otomatis pindah halaman
     private fun pindahKeDashboard() {
-        val intent = Intent(this, MainActivity::class.java)
-        startActivity(intent)
+        startActivity(Intent(this, MainActivity::class.java))
         finish()
     }
 }

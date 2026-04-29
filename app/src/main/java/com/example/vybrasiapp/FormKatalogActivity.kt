@@ -26,7 +26,7 @@ class FormKatalogActivity : AppCompatActivity() {
 
     // Variabel untuk Mode Edit
     private var isEditMode = false
-    private var editId: Int = -1
+    private var editId: String = "" // SUDAH DIPERBAIKI JADI STRING (Karena UUID)
     private var oldImageUrl: String = ""
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -54,39 +54,37 @@ class FormKatalogActivity : AppCompatActivity() {
         }
 
         btnSimpan.setOnClickListener {
-            // REVISI UX: Cek apakah ini mode edit. Jika ya, munculkan peringatan dulu!
             if (isEditMode) {
                 val builder = android.app.AlertDialog.Builder(this)
                 builder.setTitle("Konfirmasi Update")
                 builder.setMessage("Apakah Anda yakin ingin menyimpan perubahan pada produk ini?")
                 builder.setPositiveButton("Ya, Simpan") { _, _ ->
-                    siapkanData() // Lanjut simpan jika setuju
+                    siapkanData()
                 }
-                builder.setNegativeButton("Batal", null) // Tutup pop-up jika batal
+                builder.setNegativeButton("Batal", null)
                 builder.show()
             } else {
-                // Jika ini form tambah produk baru, langsung simpan saja
                 siapkanData()
             }
         }
 
-        // CEK APAKAH INI MODE EDIT?
         cekModeEdit()
     }
 
     private fun cekModeEdit() {
-        editId = intent.getIntExtra("EXTRA_ID", -1)
-        if (editId != -1) {
+        editId = intent.getStringExtra("EXTRA_ID") ?: "" // AMBIL SEBAGAI STRING
+        if (editId.isNotEmpty()) {
             isEditMode = true
             btnSimpan.text = "Update Produk"
 
             val nama = intent.getStringExtra("EXTRA_NAMA") ?: ""
-            val harga = intent.getIntExtra("EXTRA_HARGA", 0)
+            val harga = intent.getDoubleExtra("EXTRA_HARGA", 0.0) // AMBIL SEBAGAI DOUBLE
             val deskripsiLengkap = intent.getStringExtra("EXTRA_DESKRIPSI") ?: ""
             oldImageUrl = intent.getStringExtra("EXTRA_GAMBAR") ?: ""
 
             findViewById<EditText>(R.id.etNamaKopi).setText(nama)
-            findViewById<EditText>(R.id.etHargaKopi).setText(harga.toString())
+            // Hilangkan koma desimal agar rapi di layar
+            findViewById<EditText>(R.id.etHargaKopi).setText(if(harga % 1 == 0.0) harga.toInt().toString() else harga.toString())
 
             try {
                 val parts = deskripsiLengkap.split(" • ")
@@ -130,7 +128,9 @@ class FormKatalogActivity : AppCompatActivity() {
         }
 
         val kategori = if (rgKategori.checkedRadioButtonId == R.id.rbArabica) "Arabica" else "Robusta"
-        val harga = hargaStr.toInt()
+
+        // SUDAH DIPERBAIKI JADI DOUBLE
+        val harga = try { hargaStr.toDouble() } catch (e: Exception) { 0.0 }
 
         val deskripsiLengkap = "$kategori • Kemasan: $kemasan • $deskripsiAwal"
 
@@ -147,7 +147,8 @@ class FormKatalogActivity : AppCompatActivity() {
         simpanKeSupabase(namaKopi, harga, deskripsiLengkap, imageByteArray)
     }
 
-    private fun simpanKeSupabase(nama: String, harga: Int, deskripsi: String, imageByteArray: ByteArray?) {
+    // PARAMETER SUDAH DISAMAKAN (hargaKopi: Double)
+    private fun simpanKeSupabase(namaKopi: String, hargaKopi: Double, deskripsiLengkap: String, imageByteArray: ByteArray?) {
         lifecycleScope.launch {
             try {
                 var imageUrlToSave = oldImageUrl
@@ -162,20 +163,23 @@ class FormKatalogActivity : AppCompatActivity() {
                     imageUrlToSave = bucket.publicUrl(fileName)
                 }
 
-                val produkData = ProdukInsert(
-                    nama_produk = nama,
-                    harga = harga,
-                    deskripsi = deskripsi,
-                    image_url = imageUrlToSave
+                // VARIABEL SUDAH SINKRON SEMUA
+                val produkBaru = ProdukInsert(
+                    nama = namaKopi,
+                    harga = hargaKopi,
+                    deskripsi_lengkap = deskripsiLengkap,
+                    gambar_utama = imageUrlToSave
                 )
 
                 withContext(Dispatchers.IO) {
                     if (isEditMode) {
-                        SupabaseManager.client.from("produk").update(produkData) {
-                            filter { eq("id", editId) }
+                        // SUDAH DIPERBAIKI (produkBaru & id_produk)
+                        SupabaseManager.client.from("produk").update(produkBaru) {
+                            filter { eq("id_produk", editId) }
                         }
                     } else {
-                        SupabaseManager.client.from("produk").insert(produkData)
+                        // SUDAH DIPERBAIKI (produkBaru)
+                        SupabaseManager.client.from("produk").insert(produkBaru)
                     }
                 }
 
