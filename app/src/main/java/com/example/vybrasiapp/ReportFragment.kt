@@ -146,7 +146,8 @@ class ReportFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 semuaPesanan = withContext(Dispatchers.IO) {
-                    SupabaseManager.client.from("web_orders").select().decodeList<WebOrderModel>()
+                    // UBAH NAMA TABEL DARI "web_orders" MENJADI "transaksi"
+                    SupabaseManager.client.from("transaksi").select().decodeList<WebOrderModel>()
                 }
                 prosesDanTampilkanGrafik()
             } catch (e: Exception) {

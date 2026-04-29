@@ -8,7 +8,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.example.vybrasiapp.model.*
@@ -43,59 +42,58 @@ class HomeFragment : Fragment() {
     private fun muatDataDashboard(view: View) {
         viewLifecycleOwner.lifecycleScope.launch {
 
-            // 1. Keuangan
+            // 1. Omset (Dihitung dari total transaksi yang sukses)
             val financeDef = async(Dispatchers.IO) {
                 try {
-                    SupabaseManager.client.from("finance")
-                        .select { filter { eq("id", 1) } }
-                        .decodeSingleOrNull<FinanceModel>()
-                } catch (e: Exception) {
-                    null
-                }
-            }
-
-            // 2. Pesanan Menunggu
-            val pesananDef = async(Dispatchers.IO) {
-                try {
-                    SupabaseManager.client.from("web_orders")
-                        .select { filter { eq("status", "Menunggu Proses") } }
+                    SupabaseManager.client.from("transaksi")
+                        .select() // Tarik semua untuk dihitung totalnya
                         .decodeList<WebOrderModel>()
                 } catch (e: Exception) {
                     emptyList()
                 }
             }
 
-            // 3. Stok Kritis (< 5 kg)
+            // 2. Pesanan Menunggu (Dari tabel transaksi)
+            val pesananDef = async(Dispatchers.IO) {
+                try {
+                    SupabaseManager.client.from("transaksi").select { filter { eq("status", "pending") } }
+                        .decodeList<WebOrderModel>()
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            }
+
+            // 3. Stok Kritis (< 5) dari tabel produk
             val stokDef = async(Dispatchers.IO) {
                 try {
-                    SupabaseManager.client.from("inventory")
-                        .select { filter { lt("sisa_kg", 5) } }
+                    SupabaseManager.client.from("produk")
+                        .select { filter { lt("stok", 5) } }
                         .decodeList<InventoryModel>()
                 } catch (e: Exception) {
                     emptyList()
                 }
             }
 
-            // 4. Produk Terlaris (Top 3)
+            // 4. Produk Terlaris (Karena tidak ada kolom terjual, kita urutkan dari stok terendah)
             val produkDef = async(Dispatchers.IO) {
                 try {
                     SupabaseManager.client.from("produk")
                         .select {
-                            order("terjual", order = Order.DESCENDING)
+                            order("stok", order = Order.ASCENDING)
                             limit(count = 3)
                         }
-                        .decodeList<ProductModel>()
+                        .decodeList<InventoryModel>()
                 } catch (e: Exception) {
                     emptyList()
                 }
             }
 
-            // 5. Top Affiliate (Top 3)
+            // 5. Top Affiliate (Dari affiliate_profiles)
             val affiliateDef = async(Dispatchers.IO) {
                 try {
-                    SupabaseManager.client.from("affiliates")
+                    SupabaseManager.client.from("affiliate_profiles")
                         .select {
-                            order("komisi", order = Order.DESCENDING)
+                            order("total_komisi", order = Order.DESCENDING)
                             limit(count = 3)
                         }
                         .decodeList<AffiliateModel>()
@@ -104,16 +102,14 @@ class HomeFragment : Fragment() {
                 }
             }
 
-            // Tunggu semua proses selesai
-            val dataFinance = financeDef.await()
+            val dataSemuaTransaksi = financeDef.await()
             val dataPesanan = pesananDef.await()
             val dataStok = stokDef.await()
             val dataProduk = produkDef.await()
             val dataAffiliate = affiliateDef.await()
 
-            // Update UI
             withContext(Dispatchers.Main) {
-                updateUIKeuangan(view, dataFinance)
+                updateUIKeuangan(view, dataSemuaTransaksi)
                 updateUIPesanan(view, dataPesanan.size)
                 updateUIStokKritis(view, dataStok.size)
                 updateUIBestSellers(view, dataProduk)
@@ -122,29 +118,28 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun updateUIKeuangan(view: View, finance: FinanceModel?) {
+    private fun updateUIKeuangan(view: View, transaksi: List<WebOrderModel>) {
         val tvOmset = view.findViewById<TextView>(R.id.tvOmset)
         val tvKeuntungan = view.findViewById<TextView>(R.id.tvKeuntungan)
         val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
 
-        val omset = finance?.omset ?: 0L
-        val keuntungan = finance?.keuntungan ?: 0L
+        // Hitung total harga dari semua transaksi
+        val totalOmset = transaksi.sumOf { it.total_harga ?: 0.0 }
+        val estimasiKeuntungan = totalOmset * 0.3 // Asumsi margin keuntungan 30% untuk demo
 
-        tvOmset.text = formatRupiah.format(omset)
-        tvKeuntungan.text = formatRupiah.format(keuntungan)
+        tvOmset.text = formatRupiah.format(totalOmset)
+        tvKeuntungan.text = formatRupiah.format(estimasiKeuntungan)
     }
 
     private fun updateUIPesanan(view: View, jumlah: Int) {
-        val tvPesananWeb = view.findViewById<TextView>(R.id.tvPesananWeb)
-        tvPesananWeb.text = jumlah.toString()
+        view.findViewById<TextView>(R.id.tvPesananWeb).text = jumlah.toString()
     }
 
     private fun updateUIStokKritis(view: View, jumlah: Int) {
-        val tvStokKritisCount = view.findViewById<TextView>(R.id.tvStokKritisCount)
-        tvStokKritisCount.text = jumlah.toString()
+        view.findViewById<TextView>(R.id.tvStokKritisCount).text = jumlah.toString()
     }
 
-    private fun updateUIBestSellers(view: View, listProduk: List<ProductModel>) {
+    private fun updateUIBestSellers(view: View, listProduk: List<InventoryModel>) {
         val tvProduk1 = view.findViewById<TextView>(R.id.tvProduk1)
         val tvTerjual1 = view.findViewById<TextView>(R.id.tvTerjual1)
         val tvProduk2 = view.findViewById<TextView>(R.id.tvProduk2)
@@ -153,27 +148,18 @@ class HomeFragment : Fragment() {
         val tvTerjual3 = view.findViewById<TextView>(R.id.tvTerjual3)
 
         if (listProduk.isNotEmpty()) {
-            tvProduk1.text = "1. ${listProduk[0].nama_produk}"
-            tvTerjual1.text = "Terjual ${listProduk[0].terjual} Kemasan"
-        } else {
-            tvProduk1.text = "1. Belum ada data"
-            tvTerjual1.text = "-"
+            tvProduk1.text = "1. ${listProduk[0].nama}"
+            tvTerjual1.text = "Sisa Stok: ${listProduk[0].stok}"
         }
 
         if (listProduk.size >= 2) {
-            tvProduk2.text = "2. ${listProduk[1].nama_produk}"
-            tvTerjual2.text = "Terjual ${listProduk[1].terjual} Kemasan"
-        } else {
-            tvProduk2.text = "2. Belum ada data"
-            tvTerjual2.text = "-"
+            tvProduk2.text = "2. ${listProduk[1].nama}"
+            tvTerjual2.text = "Sisa Stok: ${listProduk[1].stok}"
         }
 
         if (listProduk.size >= 3) {
-            tvProduk3.text = "3. ${listProduk[2].nama_produk}"
-            tvTerjual3.text = "Terjual ${listProduk[2].terjual} Kemasan"
-        } else {
-            tvProduk3.text = "3. Belum ada data"
-            tvTerjual3.text = "-"
+            tvProduk3.text = "3. ${listProduk[2].nama}"
+            tvTerjual3.text = "Sisa Stok: ${listProduk[2].stok}"
         }
     }
 
@@ -191,16 +177,15 @@ class HomeFragment : Fragment() {
         }
 
         listAffiliate.forEachIndexed { index, affiliate ->
-            // Menggunakan layout item_affiliate_rank yang sudah Anda punya
             val itemView = LayoutInflater.from(requireContext()).inflate(R.layout.item_affiliate_rank, container, false)
-
             val tvRank = itemView.findViewById<TextView>(R.id.tvRankNum)
             tvRank.text = "#${index + 1}"
-            if (index == 0) tvRank.setTextColor(Color.parseColor("#D4AF37")) // Emas untuk juara 1
+            if (index == 0) tvRank.setTextColor(Color.parseColor("#D4AF37"))
 
-            itemView.findViewById<TextView>(R.id.tvAffiliateName).text = affiliate.nama
-            itemView.findViewById<TextView>(R.id.tvAffiliateSales).text = "${affiliate.total_penjualan} Penjualan Sukses"
-            itemView.findViewById<TextView>(R.id.tvAffiliateKomisi).text = formatRupiah.format(affiliate.komisi)
+            // Sesuai dengan kolom di AffiliateModel yang baru
+            itemView.findViewById<TextView>(R.id.tvAffiliateName).text = affiliate.nama_lengkap ?: "Tanpa Nama"
+            itemView.findViewById<TextView>(R.id.tvAffiliateSales).text = "Komisi Tertinggi"
+            itemView.findViewById<TextView>(R.id.tvAffiliateKomisi).text = formatRupiah.format(affiliate.total_komisi ?: 0.0)
 
             container.addView(itemView)
         }

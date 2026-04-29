@@ -56,17 +56,15 @@ class KatalogActivity : AppCompatActivity() {
                 listKopi.clear()
                 listKopi.addAll(daftarProduk)
 
-                // UBAH BAGIAN INI: Menambahkan logika onEdit
                 val adapter = KatalogAdapter(
                     listKopi = listKopi,
                     onEdit = { produkYangDiedit ->
-                        // Buka halaman Form dan bawa data produk yang ingin diedit
                         val intent = Intent(this@KatalogActivity, FormKatalogActivity::class.java)
-                        intent.putExtra("EXTRA_ID", produkYangDiedit.id)
-                        intent.putExtra("EXTRA_NAMA", produkYangDiedit.nama_produk)
+                        intent.putExtra("EXTRA_ID", produkYangDiedit.id_produk)
+                        intent.putExtra("EXTRA_NAMA", produkYangDiedit.nama) // Sesuai Model
                         intent.putExtra("EXTRA_HARGA", produkYangDiedit.harga)
-                        intent.putExtra("EXTRA_DESKRIPSI", produkYangDiedit.deskripsi)
-                        intent.putExtra("EXTRA_GAMBAR", produkYangDiedit.image_url)
+                        intent.putExtra("EXTRA_DESKRIPSI", produkYangDiedit.deskripsi_lengkap) // Sesuai Model
+                        intent.putExtra("EXTRA_GAMBAR", produkYangDiedit.gambar_utama) // Sesuai Model
                         startActivity(intent)
                     },
                     onDelete = { produkYangDihapus ->
@@ -89,13 +87,12 @@ class KatalogActivity : AppCompatActivity() {
                     SupabaseManager.client
                         .from("produk")
                         .delete {
-                            filter {
-                                eq("id", produk.id)
-                            }
+                            // UBAH: Sesuaikan nama kolom UUID dengan ERD baru
+                            filter { eq("id_produk", produk.id_produk ?: "") }
                         }
                 }
 
-                Toast.makeText(this@KatalogActivity, "${produk.nama_produk} berhasil dihapus!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@KatalogActivity, "${produk.nama} berhasil dihapus!", Toast.LENGTH_SHORT).show()
                 loadDataSupabase()
 
             } catch (e: Exception) {
