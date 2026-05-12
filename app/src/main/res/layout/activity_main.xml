@@ -39,7 +39,8 @@
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/tvPilihCabang" android:layout_width="wrap_content"
+            android:id="@+id/tvPilihCabang"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="📍 Cabang: Pusat ▾"
             android:textColor="@color/gold_primary"
@@ -54,13 +55,25 @@
         app:layout_constraintTop_toBottomOf="@id/headerLayout"
         app:layout_constraintBottom_toTopOf="@id/bottomNavigation"/>
 
+    <!-- BottomNavigationView dengan indikator emas -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/black_matte"
-        app:itemIconTint="@color/gold_primary"
-        app:itemTextColor="@color/gold_primary"
+
+        app:itemIconSize="24dp"
+        app:labelVisibilityMode="labeled"
+
+        app:itemIconTint="@color/bottom_nav_item_color"
+        app:itemTextColor="@color/bottom_nav_item_color"
+
+        app:itemHorizontalTranslationEnabled="false"
+        app:itemActiveIndicatorStyle="@style/BottomNavActiveIndicator"
+
+        app:itemTextAppearanceActive="@style/TextAppearance.AppCompat.Caption"
+        app:itemTextAppearanceInactive="@style/TextAppearance.AppCompat.Caption"
+
         app:menu="@menu/menu_owner_bottom_nav"
         app:layout_constraintBottom_toBottomOf="parent" />
 

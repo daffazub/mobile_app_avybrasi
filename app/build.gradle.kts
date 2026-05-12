@@ -17,11 +17,13 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "SUPABASE_URL", "\"https://YOUR-PROJECT-ID.supabase.co\"")
-        buildConfigField("String", "SUPABASE_KEY", "\"YOUR_ANON_KEY_HERE\"")
+
+        buildConfigField("String", "SUPABASE_URL", "\"https://jrgoxsxvccbcowqqrgxl.supabase.co\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyZ294c3h2Y2NiY293cXFyZ3hsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMTEyODIsImV4cCI6MjA5MzY4NzI4Mn0.4ZUI4YKsTSOZBGAbb25bQl1n4AX0U_f5GqW1JjoWw6s\"")
     }
 
     buildTypes {
+        debug {}
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -36,13 +38,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
+    kotlinOptions { jvmTarget = "11" }
+
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-
-    kotlinOptions {
-        jvmTarget = "11"
+        viewBinding = true
     }
 }
 
@@ -53,64 +54,71 @@ configurations.all {
 }
 
 dependencies {
-    // ANDROIDX CORE & LIFECYCLE
+    // CORE
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.constraintlayout)
-
-    // RECYCLERVIEW & CARDVIEW
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
-    implementation("androidx.cardview:cardview:1.0.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 
+    // UI COMPONENTS
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.cardview:cardview:1.0.0")
+
     // COMPOSE
-    implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.material3)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     // TESTING
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    // GOOGLE SIGN IN
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
 
     // FIREBASE
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-auth")
-    implementation("com.google.android.gms:play-services-auth:21.3.0")
-    implementation("com.google.firebase:firebase-firestore")
-    implementation("com.google.firebase:firebase-storage-ktx:21.0.1")
 
-    // IMAGE LOADING
-    implementation("com.github.bumptech.glide:glide:4.16.0")
-    implementation("io.coil-kt:coil:2.7.0")
+    // SUPABASE 2.5.0
+    implementation(platform("io.github.jan-tennert.supabase:bom:2.5.0"))
+    implementation("io.github.jan-tennert.supabase:postgrest-kt")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt")
+    implementation("io.github.jan-tennert.supabase:storage-kt")
+    implementation("io.github.jan-tennert.supabase:realtime-kt")
 
-    // SUPABASE 2.5.0 - gotrue-kt (BUKAN auth-kt)
-    val supabase_version = "2.5.0"
-    implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabase_version")
-    implementation("io.github.jan-tennert.supabase:gotrue-kt:$supabase_version")
-    implementation("io.github.jan-tennert.supabase:storage-kt:$supabase_version")
-    implementation("io.github.jan-tennert.supabase:realtime-kt:$supabase_version")
+    // MATERIAL DESIGN
+    implementation("com.google.android.material:material:1.9.0")
 
-// KTOR 2.3.12 - kompatibel dengan Supabase 2.5.0
-    val ktor_version = "2.3.12"
-    implementation("io.ktor:ktor-client-okhttp:$ktor_version")
-    implementation("io.ktor:ktor-client-core:$ktor_version")
-    implementation("io.ktor:ktor-client-logging:$ktor_version")
-    implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
-    // KOTLIN SERIALIZATION & COROUTINES
+    // KTOR 2.3.12
+    val ktor_v = "2.3.12"
+    implementation("io.ktor:ktor-client-okhttp:$ktor_v")
+    implementation("io.ktor:ktor-client-core:$ktor_v")
+    implementation("io.ktor:ktor-client-logging:$ktor_v")
+    implementation("io.ktor:ktor-client-content-negotiation:$ktor_v")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_v")
+
+    // SERIALIZATION & COROUTINES
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+
+    // IMAGE LOADING (cukup satu versi Glide, gunakan yang 4.16.0)
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    // annotationProcessor tidak diperlukan di runtime, opsional
+    // annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
+
+    // COIL (opsional, kalau mau pakai selain Glide)
+    implementation("io.coil-kt:coil:2.7.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     // CHARTS
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")

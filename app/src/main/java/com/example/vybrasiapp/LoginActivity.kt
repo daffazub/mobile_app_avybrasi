@@ -1,14 +1,17 @@
 package com.example.vybrasiapp
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.example.vybrasiapp.model.ProfileModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -17,6 +20,7 @@ import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.Google
 import io.github.jan.supabase.gotrue.providers.builtin.Email
 import io.github.jan.supabase.gotrue.providers.builtin.IDToken
+import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,31 +28,41 @@ import kotlinx.coroutines.withContext
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var googleSignInClient: GoogleSignInClient
+    private lateinit var tvLupaPassword: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        val etEmail = findViewById<EditText>(R.id.etEmail)
-        val etPassword = findViewById<EditText>(R.id.etPassword)
-        val btnLogin = findViewById<Button>(R.id.btnLogin)
+        val etEmail        = findViewById<EditText>(R.id.etEmail)
+        val etPassword     = findViewById<EditText>(R.id.etPassword)
+        val btnLogin       = findViewById<Button>(R.id.btnLogin)
         val btnGoogleLogin = findViewById<Button>(R.id.btnGoogleLogin)
+        tvLupaPassword     = findViewById(R.id.tvLupaPassword)
 
+        // ── Cek session aktif ──────────────────────────────
         lifecycleScope.launch {
             val session = withContext(Dispatchers.IO) {
                 try { SupabaseManager.client.auth.currentSessionOrNull() } catch (e: Exception) { null }
             }
-            if (session != null) pindahKeDashboard()
+            if (session != null) {
+                // Sudah login, langsung arahkan ke RoleLauncherActivity
+                startActivity(Intent(this@LoginActivity, RoleLauncherActivity::class.java))
+                finish()
+                return@launch
+            }
         }
 
+        // ── Setup Google Sign In ───────────────────────────
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken("68381799357-lipo17u2q05mmd0hlh2tiq9tel9qpp6k.apps.googleusercontent.com")
+            .requestIdToken("756738487382-iv3ab0uc2m0tti88v4892jv8tm3nifu5.apps.googleusercontent.com")
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
 
+        // ── Login Email ────────────────────────────────────
         btnLogin.setOnClickListener {
-            val emailStr = etEmail.text.toString().trim()
+            val emailStr    = etEmail.text.toString().trim()
             val passwordStr = etPassword.text.toString().trim()
 
             if (emailStr.isEmpty() || passwordStr.isEmpty()) {
@@ -56,56 +70,96 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // ✅ CEK RATE LIMITER SEBELUM LOGIN
             val blockMessage = LoginRateLimiter.check(this)
             if (blockMessage != null) {
                 Toast.makeText(this, blockMessage, Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
 
-            btnLogin.text = "Memuat..."
+            btnLogin.text      = "Memuat..."
             btnLogin.isEnabled = false
 
             lifecycleScope.launch {
                 try {
                     withContext(Dispatchers.IO) {
                         SupabaseManager.client.auth.signInWith(Email) {
-                            email = emailStr
+                            email    = emailStr
                             password = passwordStr
                         }
                     }
-
-                    // ✅ LOGIN BERHASIL - reset rate limiter
                     LoginRateLimiter.recordSuccess(this@LoginActivity)
                     Toast.makeText(this@LoginActivity, "Berhasil Masuk!", Toast.LENGTH_SHORT).show()
-                    pindahKeDashboard()
+
+                    // ✅ Arahkan ke RoleLauncherActivity
+                    startActivity(Intent(this@LoginActivity, RoleLauncherActivity::class.java))
+                    finish()
 
                 } catch (e: Exception) {
-                    // ✅ LOGIN GAGAL - catat percobaan
                     LoginRateLimiter.recordFailure(this@LoginActivity)
-
                     val sisa = LoginRateLimiter.getRemainingAttempts(this@LoginActivity)
-                    val pesanError = if (sisa > 0) {
+                    val pesanError = if (sisa > 0)
                         "Email atau Sandi salah! Sisa percobaan: $sisa"
-                    } else {
+                    else
                         "Akun diblokir sementara selama 15 menit."
-                    }
-
                     Log.e("AUTH_ERROR", "Gagal Login: ${e.message}")
                     Toast.makeText(this@LoginActivity, pesanError, Toast.LENGTH_LONG).show()
 
                 } finally {
-                    btnLogin.text = "Masuk"
+                    btnLogin.text      = "Masuk"
                     btnLogin.isEnabled = true
                 }
             }
         }
 
+        // ── Login Google ───────────────────────────────────
         btnGoogleLogin.setOnClickListener {
             launcherLoginGoogle.launch(googleSignInClient.signInIntent)
         }
+
+        // ── Lupa Password ──────────────────────────────────
+        tvLupaPassword.setOnClickListener {
+            startActivity(Intent(this, ForgotPasswordActivity::class.java))
+        }
     }
 
+    // ── Kirim reset password ─────────────────────────────
+    private fun kirimResetPassword(email: String) {
+        tvLupaPassword.text      = "Mengirim..."
+        tvLupaPassword.isEnabled = false
+
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    SupabaseManager.client.auth.resetPasswordForEmail(email)
+                }
+
+                AlertDialog.Builder(this@LoginActivity)
+                    .setTitle("✅ Email Terkirim!")
+                    .setMessage(
+                        "Link reset password sudah dikirim ke:\n\n$email\n\n" +
+                                "Silakan cek inbox atau folder spam kamu."
+                    )
+                    .setPositiveButton("OK", null)
+                    .show()
+
+            } catch (e: Exception) {
+                Log.e("AUTH_ERROR", "Reset password gagal: ${e.message}")
+                AlertDialog.Builder(this@LoginActivity)
+                    .setTitle("Gagal Kirim Email")
+                    .setMessage(
+                        "Pastikan email $email sudah terdaftar di sistem.\n\n" +
+                                "Hubungi admin jika masalah berlanjut."
+                    )
+                    .setPositiveButton("OK", null)
+                    .show()
+            } finally {
+                tvLupaPassword.text      = "Lupa Password?"
+                tvLupaPassword.isEnabled = true
+            }
+        }
+    }
+
+    // ── Google launcher ──────────────────────────────────
     private val launcherLoginGoogle = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -114,7 +168,7 @@ class LoginActivity : AppCompatActivity() {
             val account = task.getResult(ApiException::class.java)!!
             supabaseAuthWithGoogle(account.idToken!!)
         } catch (e: ApiException) {
-            Toast.makeText(this, "Gagal memunculkan Google: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Gagal Google Sign In: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -128,16 +182,15 @@ class LoginActivity : AppCompatActivity() {
                     }
                 }
                 Toast.makeText(this@LoginActivity, "Berhasil Masuk dengan Google!", Toast.LENGTH_SHORT).show()
-                pindahKeDashboard()
+
+                // ✅ Arahkan ke RoleLauncherActivity
+                startActivity(Intent(this@LoginActivity, RoleLauncherActivity::class.java))
+                finish()
+
             } catch (e: Exception) {
                 Log.e("AUTH_ERROR", "Supabase Google Error: ${e.message}")
-                Toast.makeText(this@LoginActivity, "Otentikasi Gagal", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@LoginActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
-    }
-
-    private fun pindahKeDashboard() {
-        startActivity(Intent(this, MainActivity::class.java))
-        finish()
     }
 }

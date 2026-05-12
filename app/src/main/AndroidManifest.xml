@@ -29,12 +29,18 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".PengeluaranActivity" />
-        <activity android:name=".FormKatalogActivity" />
         <activity android:name=".KatalogActivity" />
-
-        <activity android:name=".SupplierActivity" />
+        <activity android:name=".DetailProdukActivity"/>
+        <activity android:name=".AdminDashboardActivity"/>
+        <activity android:name=".AdminPayoutListActivity" />
+        <activity android:name=".AffiliateDashboardActivity"/>
         <activity android:name=".LogAdminActivity" />
+        <activity android:name=".AdminPayoutDetailActivity" />
+        <activity android:name=".ForgotPasswordActivity"/>
+        <activity android:name=".AffiliateListActivity" />
+        <activity android:name=".AffiliateDetailActivity" />
+        <activity android:name=".RoleLauncherActivity" />
+        <activity android:name=".TambahAffiliateActivity" />
 
     </application>
 

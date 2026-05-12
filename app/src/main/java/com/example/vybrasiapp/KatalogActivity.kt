@@ -3,6 +3,7 @@ package com.example.vybrasiapp
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -29,10 +30,7 @@ class KatalogActivity : AppCompatActivity() {
         btnBack.setOnClickListener { finish() }
 
         val fabTambah = findViewById<FloatingActionButton>(R.id.fabTambahProduk)
-        fabTambah.setOnClickListener {
-            val intent = Intent(this, FormKatalogActivity::class.java)
-            startActivity(intent)
-        }
+        fabTambah?.visibility = View.GONE
 
         rvKatalog = findViewById(R.id.rvKatalog)
         rvKatalog.layoutManager = LinearLayoutManager(this)
@@ -56,48 +54,23 @@ class KatalogActivity : AppCompatActivity() {
                 listKopi.clear()
                 listKopi.addAll(daftarProduk)
 
-                val adapter = KatalogAdapter(
-                    listKopi = listKopi,
-                    onEdit = { produkYangDiedit ->
-                        val intent = Intent(this@KatalogActivity, FormKatalogActivity::class.java)
-                        intent.putExtra("EXTRA_ID", produkYangDiedit.id_produk)
-                        intent.putExtra("EXTRA_NAMA", produkYangDiedit.nama) // Sesuai Model
-                        intent.putExtra("EXTRA_HARGA", produkYangDiedit.harga)
-                        intent.putExtra("EXTRA_DESKRIPSI", produkYangDiedit.deskripsi_lengkap) // Sesuai Model
-                        intent.putExtra("EXTRA_GAMBAR", produkYangDiedit.gambar_utama) // Sesuai Model
-                        startActivity(intent)
-                    },
-                    onDelete = { produkYangDihapus ->
-                        hapusProdukSupabase(produkYangDihapus)
+                // ✅ Tambah onClick → buka DetailProdukActivity
+                val adapter = KatalogAdapter(listKopi) { produk ->
+                    val intent = Intent(this@KatalogActivity, DetailProdukActivity::class.java).apply {
+                        putExtra("EXTRA_ID", produk.id_produk ?: "")
+                        putExtra("EXTRA_NAMA", produk.nama ?: "")
+                        putExtra("EXTRA_HARGA", produk.harga ?: 0.0)
+                        putExtra("EXTRA_DESKRIPSI", produk.deskripsi_lengkap ?: "")
+                        putExtra("EXTRA_GAMBAR", produk.gambar_utama ?: "")
+                        putExtra("EXTRA_STOK", produk.stok ?: 0)
                     }
-                )
+                    startActivity(intent)
+                }
                 rvKatalog.adapter = adapter
 
             } catch (e: Exception) {
                 Log.e("SUPABASE_ERROR", "Gagal memuat data: ${e.message}")
                 Toast.makeText(this@KatalogActivity, "Gagal memuat katalog", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun hapusProdukSupabase(produk: Produk) {
-        lifecycleScope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    SupabaseManager.client
-                        .from("produk")
-                        .delete {
-                            // UBAH: Sesuaikan nama kolom UUID dengan ERD baru
-                            filter { eq("id_produk", produk.id_produk ?: "") }
-                        }
-                }
-
-                Toast.makeText(this@KatalogActivity, "${produk.nama} berhasil dihapus!", Toast.LENGTH_SHORT).show()
-                loadDataSupabase()
-
-            } catch (e: Exception) {
-                Log.e("SUPABASE_ERROR", "Gagal menghapus: ${e.message}")
-                Toast.makeText(this@KatalogActivity, "Gagal menghapus produk", Toast.LENGTH_SHORT).show()
             }
         }
     }

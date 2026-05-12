@@ -1,16 +1,16 @@
 package com.example.vybrasiapp
 
-import android.app.AlertDialog
+import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
-import android.widget.Toast
+import android.view.animation.AnimationUtils
+import android.widget.*
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import io.github.jan.supabase.postgrest.from
@@ -18,19 +18,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
-
-// ==============================================================================
-// CETAKAN DATA LOKAL (Penangkal Error Model Lama)
-// ==============================================================================
-@Serializable
-data class TransaksiMonitorDTO(
-    val id_transaksi: String = "",
-    val no_invoice: String = "",
-    val total_harga: Double = 0.0,
-    val status: String = ""
-)
 
 @Serializable
 data class ProdukMonitorDTO(
@@ -38,23 +28,47 @@ data class ProdukMonitorDTO(
     val stok: Int = 0
 )
 
-@Serializable
-data class UpdateStatusDTO(
-    val status: String
-)
-
 class MonitorFragment : Fragment() {
 
-    private lateinit var llContainerPesanan: LinearLayout
     private lateinit var llContainerStokDetail: LinearLayout
+    private lateinit var etCariProduk: EditText
+    private lateinit var ivRefresh: ImageView
+    private lateinit var llStokKritisHighlight: LinearLayout
+    private lateinit var llItemKritis: LinearLayout
+
+    private var listProdukFull = listOf<ProdukMonitorDTO>()
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         val view = inflater.inflate(R.layout.fragment_monitor, container, false)
-        llContainerPesanan = view.findViewById(R.id.llContainerPesanan)
+
         llContainerStokDetail = view.findViewById(R.id.llContainerStokDetail)
+        etCariProduk = view.findViewById(R.id.etCariProduk)
+        ivRefresh = view.findViewById(R.id.ivRefresh)
+        llStokKritisHighlight = view.findViewById(R.id.llStokKritisHighlight)
+        llItemKritis = view.findViewById(R.id.llItemKritis)
+
+        ivRefresh.setOnClickListener {
+            muatDataOperasional()
+        }
+
+        etCariProduk.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                val keyword = s.toString().lowercase()
+                renderStok(
+                    listProdukFull.filter {
+                        it.nama.lowercase().contains(keyword)
+                    }
+                )
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
         return view
     }
 
@@ -64,158 +78,196 @@ class MonitorFragment : Fragment() {
     }
 
     private fun muatDataOperasional() {
+        val anim = AnimationUtils.loadAnimation(requireContext(), R.anim.rotate_refresh)
+        ivRefresh.startAnimation(anim)
+
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // 1. Tarik Pesanan yang statusnya 'pending' (Menggunakan tabel baru: transaksi)
-                val pesananList = withContext(Dispatchers.IO) {
-                    SupabaseManager.client.from("transaksi")
-                        .select { filter { eq("status", "pending") } }
-                        .decodeList<TransaksiMonitorDTO>()
+                listProdukFull = withContext(Dispatchers.IO) {
+                    SupabaseManager.client.from("produk")
+                        .select()
+                        .decodeList<ProdukMonitorDTO>()
                 }
 
-                // 2. Tarik SEMUA Stok Barang (Menggunakan tabel baru: produk)
-                val stokList = withContext(Dispatchers.IO) {
-                    SupabaseManager.client.from("produk").select().decodeList<ProdukMonitorDTO>()
-                }
+                // Cek fragment masih terattach sebelum update UI
+                if (!isAdded) return@launch
 
                 withContext(Dispatchers.Main) {
-                    renderPesanan(pesananList)
-                    renderStok(stokList)
+                    renderStok(listProdukFull)
+                    updateStokKritisHighlight(listProdukFull.filter { it.stok < 5 })
+                    cekStokKritis(listProdukFull)
+                    ivRefresh.clearAnimation()
                 }
+
             } catch (e: Exception) {
-                Log.e("MONITOR_ERROR", "Gagal memuat operasional: ${e.message}")
+                if (isAdded) {
+                    ivRefresh.clearAnimation()
+                    Log.e("MONITOR_ERROR", "Gagal: ${e.message}")
+                    Toast.makeText(
+                        requireContext(),
+                        "Gagal memuat data produk",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
     }
 
-    // ==========================================
-    // FUNGSI RENDER ANTREAN PESANAN
-    // ==========================================
-    private fun renderPesanan(pesananList: List<TransaksiMonitorDTO>) {
-        llContainerPesanan.removeAllViews()
-
-        if (pesananList.isEmpty()) {
-            val tvKosong = TextView(requireContext()).apply {
-                text = "Hore! Meja bersih, tidak ada antrean pesanan saat ini."
-                setPadding(16, 16, 16, 16)
-                setTextColor(Color.GRAY)
-            }
-            llContainerPesanan.addView(tvKosong)
+    private fun updateStokKritisHighlight(kritis: List<ProdukMonitorDTO>) {
+        if (!isAdded) return
+        if (kritis.isEmpty()) {
+            llStokKritisHighlight.visibility = View.GONE
             return
         }
 
-        pesananList.forEach { pesanan ->
-            val itemLayout = LinearLayout(requireContext()).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(16, 16, 16, 16)
+        llStokKritisHighlight.visibility = View.VISIBLE
+        llItemKritis.removeAllViews()
+
+        kritis.forEach { produk ->
+            val cardView = androidx.cardview.widget.CardView(requireContext()).apply {
+                radius = 8f
+                cardElevation = 2f
+                setCardBackgroundColor(Color.WHITE)
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 0, 0, 8)
+                }
                 try {
-                    background = requireContext().getDrawable(R.drawable.bg_card_outline)
-                } catch (e: Exception) {
-                    setBackgroundColor(Color.parseColor("#FAFAFA")) // Fallback aman
-                }
+                    background = resources.getDrawable(R.drawable.bg_item_kritis, null)
+                } catch (e: Exception) { /* fallback */ }
             }
 
-            val tvTitle = TextView(requireContext()).apply {
-                text = "Pesanan ${pesanan.no_invoice}"
+            val row = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(14, 12, 14, 12)
+                gravity = android.view.Gravity.CENTER_VERTICAL
+            }
+
+            val iconWarn = TextView(requireContext()).apply {
+                text = "⚠️"
                 textSize = 16f
-                setTypeface(null, android.graphics.Typeface.BOLD)
-                setTextColor(Color.BLACK)
+                setPadding(0, 0, 8, 0)
             }
 
-            val formatRupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
-            val hargaRp = formatRupiah.format(pesanan.total_harga)
-            val tvDetail = TextView(requireContext()).apply {
-                text = "Total Nilai: $hargaRp\nStatus: ${pesanan.status}"
+            val tvNama = TextView(requireContext()).apply {
+                text = produk.nama
+                textSize = 14f
+                setTextColor(Color.parseColor("#1A1A1A"))
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+            }
+
+            val tvStok = TextView(requireContext()).apply {
+                text = "Stok: ${produk.stok}"
+                textSize = 13f
                 setTextColor(Color.parseColor("#F44336"))
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                    setMargins(0, 4, 0, 12)
-                }
+                setTypeface(null, android.graphics.Typeface.BOLD)
             }
 
-            val btnSelesai = Button(requireContext()).apply {
-                text = "Tandai Selesai & Kirim"
-                setBackgroundColor(Color.parseColor("#4CAF50"))
-                setTextColor(Color.WHITE)
+            row.addView(iconWarn)
+            row.addView(tvNama)
+            row.addView(tvStok)
 
-                setOnClickListener {
-                    konfirmasiSelesaikanPesanan(pesanan.id_transaksi, pesanan.no_invoice)
-                }
-            }
-
-            val garisBawah = View(requireContext()).apply {
-                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 2).apply {
-                    setMargins(0, 16, 0, 0)
-                }
-                setBackgroundColor(Color.parseColor("#EEEEEE"))
-            }
-
-            itemLayout.addView(tvTitle)
-            itemLayout.addView(tvDetail)
-            itemLayout.addView(btnSelesai)
-            itemLayout.addView(garisBawah)
-
-            llContainerPesanan.addView(itemLayout)
+            cardView.addView(row)
+            llItemKritis.addView(cardView)
         }
     }
 
-    // ==========================================
-    // FUNGSI UPDATE STATUS KE SUPABASE
-    // ==========================================
-    private fun konfirmasiSelesaikanPesanan(idTransaksi: String, noInvoice: String) {
-        AlertDialog.Builder(requireContext())
-            .setTitle("Selesaikan Pesanan?")
-            .setMessage("Apakah barang untuk $noInvoice sudah siap dan dikirim?")
-            .setPositiveButton("Ya, Sudah") { _, _ ->
-                updateStatusSupabase(idTransaksi, noInvoice)
-            }
-            .setNegativeButton("Belum", null)
-            .show()
+    private fun cekStokKritis(list: List<ProdukMonitorDTO>) {
+        if (!isAdded) return
+        val kritis = list.filter { it.stok < 5 }
+        if (kritis.isEmpty()) return
+
+        val prefs = requireContext().getSharedPreferences("stok_prefs", Context.MODE_PRIVATE)
+        val lastNotified = prefs.getString("last_notified_date", null)
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+        if (lastNotified == today) return
+
+        val namaProduk = kritis.joinToString("\n") { "• ${it.nama} (sisa ${it.stok})" }
+        NotifikasiHelper.kirimNotifikasiStokKritis(requireContext(), namaProduk)
+
+        prefs.edit().putString("last_notified_date", today).apply()
     }
 
-    private fun updateStatusSupabase(idTransaksi: String, noInvoice: String) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    // Update status dari 'pending' menjadi 'shipped' (sesuai ENUM database)
-                    SupabaseManager.client.from("transaksi")
-                        .update(UpdateStatusDTO("shipped")) {
-                            filter { eq("id_transaksi", idTransaksi) }
-                        }
-                }
-
-                Toast.makeText(requireContext(), "$noInvoice berhasil diselesaikan!", Toast.LENGTH_SHORT).show()
-                muatDataOperasional()
-
-            } catch (e: Exception) {
-                Log.e("MONITOR_ERROR", "Gagal update: ${e.message}")
-                Toast.makeText(requireContext(), "Gagal mengubah status pesanan", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    // ==========================================
-    // FUNGSI RENDER STOK
-    // ==========================================
     private fun renderStok(stokList: List<ProdukMonitorDTO>) {
+        if (!isAdded) return
         llContainerStokDetail.removeAllViews()
+
+        if (stokList.isEmpty()) {
+            llContainerStokDetail.addView(TextView(requireContext()).apply {
+                text = "Tidak ada data produk."
+                setPadding(0, 8, 0, 8)
+                setTextColor(Color.GRAY)
+            })
+            return
+        }
+
         stokList.forEach { produk ->
-            val itemView = LayoutInflater.from(requireContext()).inflate(R.layout.item_stok_warning, llContainerStokDetail, false)
-            val kotakWarna = itemView.findViewById<View>(R.id.viewColorIndicator)
-            val tvNamaStok = itemView.findViewById<TextView>(R.id.tvNamaStokWarning)
-
-            val sisa = produk.stok
-            val nama = produk.nama
-
-            val warnaStatus = when {
-                sisa < 5 -> "#F44336" // Kritis
-                sisa in 5..10 -> "#FFC107" // Waspada
-                else -> "#4CAF50" // Aman
+            val cardView = androidx.cardview.widget.CardView(requireContext()).apply {
+                radius = 10f
+                cardElevation = 2f
+                setCardBackgroundColor(Color.WHITE)
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 0, 0, 8)
+                }
             }
 
-            kotakWarna.setBackgroundColor(Color.parseColor(warnaStatus))
-            tvNamaStok.text = "$nama - Tersedia: $sisa Kemasan"
+            val row = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(16, 14, 16, 14)
+                gravity = android.view.Gravity.CENTER_VERTICAL
+            }
 
-            llContainerStokDetail.addView(itemView)
+            val warna = when {
+                produk.stok < 5 -> "#F44336"
+                produk.stok <= 10 -> "#FF9800"
+                else -> "#4CAF50"
+            }
+
+            val indikator = View(requireContext()).apply {
+                setBackgroundColor(Color.parseColor(warna))
+                layoutParams = LinearLayout.LayoutParams(
+                    6,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                ).apply {
+                    setMargins(0, 0, 12, 0)
+                    height = 40
+                }
+            }
+
+            val tvNama = TextView(requireContext()).apply {
+                text = produk.nama
+                textSize = 14f
+                setTextColor(Color.parseColor("#1A1A1A"))
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+            }
+
+            val tvStok = TextView(requireContext()).apply {
+                text = "${produk.stok} kemasan"
+                textSize = 13f
+                setTextColor(Color.parseColor(warna))
+                setTypeface(null, android.graphics.Typeface.BOLD)
+            }
+
+            row.addView(indikator)
+            row.addView(tvNama)
+            row.addView(tvStok)
+
+            cardView.addView(row)
+            llContainerStokDetail.addView(cardView)
         }
     }
 }
