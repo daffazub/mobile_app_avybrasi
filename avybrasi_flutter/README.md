@@ -1,16 +1,11 @@
-# avybrasi_app
+# Vybrasi Mobile App - Flutter Project
 
-A new Flutter project.
+Direktori ini berisi seluruh kode sumber Flutter untuk aplikasi mobile **Vybrasi Specialty Roastery (Affiliate Portal)**.
 
-## Getting Started
+Untuk dokumentasi lengkap, fitur, arsitektur, panduan konfigurasi Supabase, dan cara menjalankan aplikasi, silakan merujuk ke berkas [README utama di root repository](../README.md).
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Quick Start
+```bash
+flutter pub get
+flutter run
+```
